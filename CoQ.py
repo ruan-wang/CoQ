@@ -23,7 +23,7 @@ with st.sidebar:
     
     # 学科和知识点输入
     subject = st.text_input("请输入学科", value="例如：高中语文", help="例如：高中数学、大学计算机科学、初中物理")
-    core_knowledge = st.text_input("请描述您想要生成的问题", value="荷塘月色", help="例如：一元二次方程求解、光合作用原理")
+    core_knowledge = st.text_input("请描述您想要生成的问题", value="例如：请生成高中课文《荷塘月色》的相关课程问题", help="例如：一元二次方程求解、光合作用原理")
     
     # 生成按钮
     generate_button = st.button("生成问题链", type="primary")
