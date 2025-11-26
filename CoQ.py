@@ -185,11 +185,14 @@ if generate_button:
                 st.warning(f"解析关联逻辑说明时发生错误: {e}")
 
 # --- 调试区域 ---
+'''
 with st.expander("调试：查看原始 API 响应", expanded=False):
     if 'raw_response' in st.session_state:
         st.text_area("完整的原始响应", value=st.session_state['raw_response'], height=300)
     else:
         st.info("请先生成问题以查看原始响应。")
+'''
+
 
 # --- 页脚 ---
 st.markdown("---")
