@@ -28,8 +28,8 @@ with st.sidebar:
     # 生成按钮
     generate_button = st.button("生成问题链", type="primary")
 
-# --- 主逻辑 ---
-def stream_answer(api_key, user_prompt, placeholder):
+# --- 流式响应函数 ---
+def stream_response(api_key, user_prompt, placeholder):
     """
     流式获取 API 响应，并实时更新 Streamlit 界面。
     """
@@ -109,7 +109,7 @@ if generate_button:
     elif not api_key:
         st.warning("请输入 API Key。")
     else:
-        # 定义 Prompt
+        # 定义问题生成Prompt
         prompt_template = """通用学科链式问题生成Prompt
 
 请你以【{subject}】领域的资深教师身份，基于以下核心要求，针对【{core_knowledge}】生成一组具有强关联性的链式问题。
@@ -152,6 +152,8 @@ if generate_button:
         # 清空之前的会话状态
         if 'raw_response' in st.session_state:
             del st.session_state['raw_response']
+        if 'answers_response' in st.session_state:
+            del st.session_state['answers_response']
         
         st.success("开始生成问题...")
         
@@ -160,8 +162,8 @@ if generate_button:
         # 初始显示loading信息
         response_placeholder.markdown("正在等待大模型响应...")
         
-        # 调用流式函数，这会阻塞直到流传输完成
-        raw_response = stream_answer(api_key, final_prompt, response_placeholder)
+        # 调用流式函数，生成问题
+        raw_response = stream_response(api_key, final_prompt, response_placeholder)
         
         # 流传输完成后，将完整响应存入 session_state
         if raw_response:
@@ -183,9 +185,82 @@ if generate_button:
                     st.info("未在生成结果中找到明确的“关联逻辑说明”部分。")
             except Exception as e:
                 st.warning(f"解析关联逻辑说明时发生错误: {e}")
+            
+            # 添加生成答案的选项
+            st.markdown("---")
+            generate_answer = st.button("生成答案", type="secondary")
+            
+            if generate_answer:
+                # 生成答案的Prompt
+                answer_prompt = f"""请针对以下生成的问题链，逐一提供详细、准确的答案：
 
+{raw_response}
 
+### 答案输出要求：
+1. 按照问题顺序逐一回答，每个答案前标注对应的问题编号
+2. 答案要准确、详细，符合学科规范
+3. 对于需要计算或推导的问题，展示完整的解题过程
+4. 保持答案的专业性和教育性
+"""
+                
+                st.success("开始生成答案...")
+                answer_placeholder = st.empty()
+                answer_placeholder.markdown("正在生成答案中...")
+                
+                # 调用流式函数生成答案
+                answers_response = stream_response(api_key, answer_prompt, answer_placeholder)
+                
+                if answers_response:
+                    st.session_state['answers_response'] = answers_response
+                    st.success("答案生成完毕！")
 
+# 如果已经生成了问题但还没生成答案，也显示生成答案按钮
+elif 'raw_response' in st.session_state and 'answers_response' not in st.session_state:
+    st.markdown(st.session_state['raw_response'])
+    
+    # 尝试解析并展示关联逻辑说明
+    try:
+        if "关联逻辑说明：" in st.session_state['raw_response']:
+            parts = re.split(r'关联逻辑说明：', st.session_state['raw_response'], maxsplit=1)
+            logic_part = "关联逻辑说明：" + parts[1]
+            with st.expander("查看关联逻辑说明"):
+                st.markdown(logic_part)
+    except:
+        pass
+    
+    # 显示生成答案按钮
+    st.markdown("---")
+    generate_answer = st.button("生成答案", type="secondary")
+    
+    if generate_answer:
+        # 生成答案的Prompt
+        answer_prompt = f"""请针对以下生成的问题链，逐一提供详细、准确的答案：
+
+{st.session_state['raw_response']}
+
+### 答案输出要求：
+1. 按照问题顺序逐一回答，每个答案前标注对应的问题编号
+2. 答案要准确、详细，符合学科规范
+3. 对于需要计算或推导的问题，展示完整的解题过程
+4. 保持答案的专业性和教育性
+"""
+        
+        st.success("开始生成答案...")
+        answer_placeholder = st.empty()
+        answer_placeholder.markdown("正在生成答案中...")
+        
+        # 调用流式函数生成答案
+        answers_response = stream_response(api_key, answer_prompt, answer_placeholder)
+        
+        if answers_response:
+            st.session_state['answers_response'] = answers_response
+            st.success("答案生成完毕！")
+
+# 如果已经生成了答案，显示答案
+if 'answers_response' in st.session_state:
+    st.markdown("---")
+    st.subheader("📝 问题答案")
+    st.markdown(st.session_state['answers_response'])
 
 # --- 页脚 ---
 st.markdown("---")
