@@ -1,8 +1,14 @@
-#streamlit run CoQ.py
+# streamlit run CoQ.py
 import streamlit as st
 import requests
 import json
 import re
+
+# ========= 全局固定配置（不在界面展示） =========
+OPENROUTER_API_KEY = "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"          # ← 换成你的真实 OpenRouter API Key
+MODEL_NAME = "openai/gpt-4o"                        # ← 固定使用的模型
+SITE_URL = "https://your-actual-site.com"           # ← 你的站点 URL，可随便填一个合法网址
+SITE_NAME = "Your Site Name"                        # ← 显示在 OpenRouter 排行里的站点名
 
 # --- 页面配置 ---
 st.set_page_config(page_title="链式问题生成器", page_icon="🔗", layout="wide")
@@ -10,94 +16,111 @@ st.set_page_config(page_title="链式问题生成器", page_icon="🔗", layout=
 # --- 应用标题和说明 ---
 st.title("🔗 通用学科问题链生成")
 st.markdown("""
-根据指定的学科和核心知识点，生成一组具有强关联性、梯度递进的链式问题。
+根据指定的学科和核心知识点，生成一组具有强关联性、梯度递进的链式问题。  
 问题将以流式方式实时显示。请在左侧输入你的配置信息。
 """)
 
 # --- 侧边栏：用户输入 ---
 with st.sidebar:
     st.header("用户配置区")
-    
-    # API Key 输入
-    api_key = "Bearer VNDJAZymrZAarHDfQYjA:ggTmZzqeYqtMgiKuYMdq"
-    
-    # 学科和知识点输入
-    subject = st.text_input("请输入学科", value="例如：高中语文", help="例如：高中数学、大学计算机科学、初中物理")
-    core_knowledge = st.text_input("请描述您想要生成的问题", value="例如：请生成高中课文《荷塘月色》的相关课程问题", help="例如：一元二次方程求解、光合作用原理")
-    
-    # 生成按钮
+
+    # ✅ 不再展示 API Key / 模型 / 站点配置，只保留真正给用户用的输入
+    subject = st.text_input(
+        "请输入学科",
+        value="例如：高中语文",
+        help="例如：高中数学、大学计算机科学、初中物理"
+    )
+    core_knowledge = st.text_input(
+        "请描述您想要生成的问题",
+        value="例如：请生成高中课文《荷塘月色》的相关课程问题",
+        help="例如：一元二次方程求解、光合作用原理"
+    )
+
     generate_button = st.button("生成问题链", type="primary")
 
-# --- 流式响应函数 ---
-def stream_response(api_key, user_prompt, placeholder):
+# --- 流式响应函数（适配 OpenRouter API） ---
+def stream_response(api_key, model_name, site_url, site_name, user_prompt, placeholder):
     """
-    流式获取 API 响应，并实时更新 Streamlit 界面。
+    流式获取 OpenRouter API 响应，并实时更新 Streamlit 界面。
     """
     if not api_key:
-        st.error("请先输入你的 API Key。")
+        st.error("请先在代码中配置你的 OpenRouter API Key。")
         return None
 
-    url = "https://spark-api-open.xf-yun.com/v1/chat/completions"
+    # OpenRouter API 地址
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    
+    # 构造请求头
     headers = {
-        'Authorization': api_key,
-        'Content-Type': "application/json"
+        'Authorization': f"Bearer {api_key}",
+        'Content-Type': "application/json",
+        'HTTP-Referer': site_url,  # 可选但建议填写
+        'X-Title': site_name       # 可选但建议填写
     }
     
-    messages = [
-        {"role": "user", "content": user_prompt}
-    ]
-    
+    # 构造请求体
     body = {
-        "model": "4.0Ultra",
-        "messages": messages,
-        "stream": True,  # 开启流式传输
-        "tools": [
-            {
-                "type": "web_search",
-                "web_search": {
-                    "enable": False,
-                    "search_mode": "deep"
-                }
-            }
-        ]
+        "model": model_name,
+        "messages": [{"role": "user", "content": user_prompt}],
+        "stream": True,      # 开启流式传输
+        "temperature": 0.7,
+        "max_tokens": 2000,
+        "top_p": 1.0
     }
     
     full_response = ""
     
     try:
-        response = requests.post(url=url, json=body, headers=headers, stream=True, timeout=120)
+        response = requests.post(
+            url=url,
+            json=body,
+            headers=headers,
+            stream=True,
+            timeout=120
+        )
         response.raise_for_status()
         
+        # 解析流式响应
         for chunk in response.iter_lines():
             if chunk:
-                # 讯飞流式返回的数据格式为: b'data: {"id":"...", ...}'
-                # 需要先去除前缀 'data: '，再进行 JSON 解析
                 chunk_str = chunk.decode('utf-8')
                 if chunk_str.startswith('data: '):
-                    chunk_str = chunk_str[6:]
-                if chunk_str.strip() == '[DONE]':
-                    break
-                
-                try:
-                    chunk_data = json.loads(chunk_str)
-                    # 提取 delta 中的 content
-                    delta_content = chunk_data['choices'][0]['delta'].get('content', '')
-                    if delta_content:
-                        full_response += delta_content
-                        # 实时更新界面，使用 Markdown 渲染
-                        placeholder.markdown(full_response)
-                except json.JSONDecodeError:
-                    # 如果解析失败，可能是不完整的 chunk，暂时忽略
-                    continue
-                except Exception as e:
-                    st.warning(f"处理数据块时发生错误: {e}")
-                    continue
-
-    except requests.exceptions.RequestException as e:
-        error_msg = f"请求 API 失败: {e}"
+                    chunk_str = chunk_str[6:].strip()
+                    
+                    if chunk_str == '[DONE]':
+                        break
+                    
+                    try:
+                        chunk_data = json.loads(chunk_str)
+                        delta_content = chunk_data['choices'][0]['delta'].get('content', '')
+                        if delta_content:
+                            full_response += delta_content
+                            placeholder.markdown(full_response)
+                    except json.JSONDecodeError:
+                        continue
+                    except KeyError as e:
+                        st.warning(f"响应格式异常，缺少字段：{e}")
+                        continue
+    
+    except requests.exceptions.Timeout:
+        st.error("请求超时，请检查网络或稍后重试")
+        placeholder.markdown("**请求超时，请检查网络或稍后重试**")
+    except requests.exceptions.ConnectionError:
+        st.error("网络连接失败，请检查网络设置")
+        placeholder.markdown("**网络连接失败，请检查网络设置**")
+    except requests.exceptions.HTTPError as e:
+        error_msg = f"HTTP请求失败：{e}"
         st.error(error_msg)
         placeholder.markdown(f"**{error_msg}**")
-        return None
+        try:
+            error_detail = response.json()
+            st.error(f"错误详情：{error_detail}")
+        except:
+            pass
+    except Exception as e:
+        error_msg = f"未知错误：{e}"
+        st.error(error_msg)
+        placeholder.markdown(f"**{error_msg}**")
     
     return full_response
 
@@ -106,10 +129,10 @@ if generate_button:
     # 验证输入
     if not subject or not core_knowledge:
         st.warning("学科和核心知识点均为必填项。")
-    elif not api_key:
-        st.warning("请输入 API Key。")
+    elif not OPENROUTER_API_KEY:
+        st.warning("请在代码顶部配置 OPENROUTER_API_KEY。")
     else:
-        # 定义问题生成Prompt
+        # 定义问题生成 Prompt
         prompt_template = """通用学科链式问题生成Prompt
 
 请你以【{subject}】领域的资深教师身份，基于以下核心要求，针对【{core_knowledge}】生成一组具有强关联性的链式问题。
@@ -146,52 +169,48 @@ if generate_button:
 
 关联逻辑说明：问题1搭建基础认知，问题2基于基础性质聚焦特定成像场景...
 """
-        # 填充 Prompt
         final_prompt = prompt_template.format(subject=subject, core_knowledge=core_knowledge)
         
         # 清空之前的会话状态
-        if 'raw_response' in st.session_state:
-            del st.session_state['raw_response']
-        if 'answers_response' in st.session_state:
-            del st.session_state['answers_response']
+        for key in ['raw_response', 'answers_response']:
+            if key in st.session_state:
+                del st.session_state[key]
         
         st.success("开始生成问题...")
         
-        # 创建一个占位符，用于实时更新内容
         response_placeholder = st.empty()
-        # 初始显示loading信息
         response_placeholder.markdown("正在等待大模型响应...")
         
-        # 调用流式函数，生成问题
-        raw_response = stream_response(api_key, final_prompt, response_placeholder)
+        # 使用固定配置调用
+        raw_response = stream_response(
+            api_key=OPENROUTER_API_KEY,
+            model_name=MODEL_NAME,
+            site_url=SITE_URL,
+            site_name=SITE_NAME,
+            user_prompt=final_prompt,
+            placeholder=response_placeholder
+        )
         
-        # 流传输完成后，将完整响应存入 session_state
         if raw_response:
             st.session_state['raw_response'] = raw_response
             st.success("问题生成完毕！")
             
-            # 尝试解析并展示关联逻辑说明
+            # 解析并展示关联逻辑说明
             try:
                 if "关联逻辑说明：" in raw_response:
-                    # 使用正则表达式分割，确保只分割一次
                     parts = re.split(r'关联逻辑说明：', raw_response, maxsplit=1)
-                    questions_part = parts[0]
                     logic_part = "关联逻辑说明：" + parts[1]
-                    
-                    # 在原始位置下方展示折叠的逻辑说明
                     with st.expander("查看关联逻辑说明"):
                         st.markdown(logic_part)
                 else:
                     st.info("未在生成结果中找到明确的“关联逻辑说明”部分。")
             except Exception as e:
-                st.warning(f"解析关联逻辑说明时发生错误: {e}")
+                st.warning(f"解析关联逻辑说明时出错: {e}")
             
-            # 添加生成答案的选项
             st.markdown("---")
             generate_answer = st.button("生成答案", type="secondary")
             
             if generate_answer:
-                # 生成答案的Prompt
                 answer_prompt = f"""请针对以下生成的问题链，逐一提供详细、准确的答案：
 
 {raw_response}
@@ -202,23 +221,27 @@ if generate_button:
 3. 对于需要计算或推导的问题，展示完整的解题过程
 4. 保持答案的专业性和教育性
 """
-                
                 st.success("开始生成答案...")
                 answer_placeholder = st.empty()
                 answer_placeholder.markdown("正在生成答案中...")
                 
-                # 调用流式函数生成答案
-                answers_response = stream_response(api_key, answer_prompt, answer_placeholder)
+                answers_response = stream_response(
+                    api_key=OPENROUTER_API_KEY,
+                    model_name=MODEL_NAME,
+                    site_url=SITE_URL,
+                    site_name=SITE_NAME,
+                    user_prompt=answer_prompt,
+                    placeholder=answer_placeholder
+                )
                 
                 if answers_response:
                     st.session_state['answers_response'] = answers_response
                     st.success("答案生成完毕！")
 
-# 如果已经生成了问题但还没生成答案，也显示生成答案按钮
+# 显示已生成的问题（未生成答案时）
 elif 'raw_response' in st.session_state and 'answers_response' not in st.session_state:
     st.markdown(st.session_state['raw_response'])
     
-    # 尝试解析并展示关联逻辑说明
     try:
         if "关联逻辑说明：" in st.session_state['raw_response']:
             parts = re.split(r'关联逻辑说明：', st.session_state['raw_response'], maxsplit=1)
@@ -228,12 +251,10 @@ elif 'raw_response' in st.session_state and 'answers_response' not in st.session
     except:
         pass
     
-    # 显示生成答案按钮
     st.markdown("---")
     generate_answer = st.button("生成答案", type="secondary")
     
     if generate_answer:
-        # 生成答案的Prompt
         answer_prompt = f"""请针对以下生成的问题链，逐一提供详细、准确的答案：
 
 {st.session_state['raw_response']}
@@ -244,19 +265,24 @@ elif 'raw_response' in st.session_state and 'answers_response' not in st.session
 3. 对于需要计算或推导的问题，展示完整的解题过程
 4. 保持答案的专业性和教育性
 """
-        
         st.success("开始生成答案...")
         answer_placeholder = st.empty()
         answer_placeholder.markdown("正在生成答案中...")
         
-        # 调用流式函数生成答案
-        answers_response = stream_response(api_key, answer_prompt, answer_placeholder)
+        answers_response = stream_response(
+            api_key=OPENROUTER_API_KEY,
+            model_name=MODEL_NAME,
+            site_url=SITE_URL,
+            site_name=SITE_NAME,
+            user_prompt=answer_prompt,
+            placeholder=answer_placeholder
+        )
         
         if answers_response:
             st.session_state['answers_response'] = answers_response
             st.success("答案生成完毕！")
 
-# 如果已经生成了答案，显示答案
+# 显示已生成的答案
 if 'answers_response' in st.session_state:
     st.markdown("---")
     st.subheader("📝 问题答案")
@@ -265,8 +291,8 @@ if 'answers_response' in st.session_state:
 # --- 页脚 ---
 st.markdown("---")
 st.markdown("""
-    提示：
-    1.  本网站最多同时在线人数为5人（个人项目，请理解）。
-    2.  流式传输过程中，请耐心等待，不要刷新页面。
-    3.  有任何问题可以邮箱联系我本人进行反馈（wangruan@mail.bnu.edu.cn）。
+提示：  
+1. 使用的是 OpenRouter API，请确保你的 API Key 有足够的额度（在代码中已固定配置）。  
+2. 流式传输过程中，请耐心等待，不要刷新页面。  
+3. 有任何问题可以邮箱联系我本人进行反馈（wangruan@mail.bnu.edu.cn）。
 """)
