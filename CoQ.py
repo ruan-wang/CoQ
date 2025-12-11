@@ -127,10 +127,10 @@ EXAMPLE_ANSWERS = """
 """
 
 # --- 页面配置 ---
-st.set_page_config(page_title="链式问题生成器（示例版）", page_icon="🔗", layout="wide")
+st.set_page_config(page_title="链式问题生成器", page_icon="🔗", layout="wide")
 
 # --- 应用标题和说明 ---
-st.title("🔗 通用学科问题链生成（示例版）")
+st.title("🔗 通用学科问题链生成")
 st.markdown("""
 > 当前为 **示例站点**：本页面不再调用任何大模型 API，只展示预先设计好的示例问题链与答案。  
 > 你仍然可以在左侧输入学科与描述，但展示内容为固定示例，便于演示页面效果。
