@@ -1,6 +1,7 @@
 # streamlit run CoQ.py
 import streamlit as st
 import re
+import time
 
 # --- 预设示例：问题链与答案（可按需修改） ---
 EXAMPLE_QUESTIONS = """
@@ -126,14 +127,31 @@ EXAMPLE_ANSWERS = """
 通过这条策略，学生在阅读其他抒情散文或诗歌时，也能更有意识地在“景—情—意”之间来回穿梭，提升审美与思辨能力。
 """
 
+# === 流式输出模拟函数 ===
+def simulate_streaming(text: str, placeholder, delay: float = 0.01, chunk_size: int = 8):
+    """
+    将给定文本以“流式”的方式输出到 placeholder。
+    - delay: 每次更新之间的延时（秒）
+    - chunk_size: 每次追加的字符数
+    """
+    displayed = ""
+    # 去掉开头多余的换行，避免一开始空白太大
+    text = text.lstrip("\n")
+    for i in range(0, len(text), chunk_size):
+        displayed += text[i:i+chunk_size]
+        placeholder.markdown(displayed)
+        time.sleep(delay)
+
 # --- 页面配置 ---
 st.set_page_config(page_title="链式问题生成器", page_icon="🔗", layout="wide")
 
 # --- 应用标题和说明 ---
 st.title("🔗 通用学科问题链生成")
 st.markdown("""
-> 当前为 **示例站点**：本页面不再调用任何大模型 API，只展示预先设计好的示例问题链与答案。  
-> 你仍然可以在左侧输入学科与描述，但展示内容为固定示例，便于演示页面效果。
+> 当前为 **示例站点**：  
+> - 不调用任何大模型 API；  
+> - 通过本地字符串 + `time.sleep` **模拟流式输出效果**。  
+> 左侧输入学科与描述仅用于展示，不影响示例内容。
 """)
 
 # --- 侧边栏：用户输入 ---
@@ -151,11 +169,11 @@ with st.sidebar:
         help="示例版中，该输入仅用于展示，不参与实际生成"
     )
 
-    generate_button = st.button("生成问题链（示例）", type="primary")
+    generate_button = st.button("生成问题链（模拟流式）", type="primary")
 
 # --- 主界面内容渲染（示例逻辑） ---
 if generate_button:
-    # 验证输入（仍然保留一下基础校验体验）
+    # 验证输入（保留一点真实交互感）
     if not subject or not core_knowledge:
         st.warning("学科和核心知识点均为必填项（示例版同样要求输入完整）。")
     else:
@@ -164,14 +182,17 @@ if generate_button:
             if key in st.session_state:
                 del st.session_state[key]
 
-        st.info("当前为示例站点，将展示预设好的《荷塘月色》问题链示例。")
+        st.info("当前为示例站点，将以“流式”方式展示预设好的《荷塘月色》问题链示例。")
+
+        # 用 placeholder 模拟流式输出
+        response_placeholder = st.empty()
+        simulate_streaming(EXAMPLE_QUESTIONS, response_placeholder, delay=0.01, chunk_size=10)
+
+        # 将完整内容存入 session_state，方便刷新后查看
         st.session_state['raw_response'] = EXAMPLE_QUESTIONS
+        st.success("示例问题链流式展示完成！")
 
-        # 直接展示示例问题链
-        st.success("示例问题链已生成！")
-        st.markdown(EXAMPLE_QUESTIONS)
-
-        # 尝试解析并展示关联逻辑说明
+        # 解析并展示关联逻辑说明（单独折叠）
         try:
             if "关联逻辑说明：" in EXAMPLE_QUESTIONS:
                 parts = re.split(r'关联逻辑说明：', EXAMPLE_QUESTIONS, maxsplit=1)
@@ -182,15 +203,9 @@ if generate_button:
             st.warning(f"解析关联逻辑说明时出错: {e}")
 
         st.markdown("---")
-        generate_answer = st.button("生成答案（示例）", type="secondary")
+        st.info("若想查看模拟的答案流式输出，请点击下方按钮（或刷新后点击页面下方的按钮）。")
 
-        if generate_answer:
-            st.info("当前为示例站点，将展示预设好的答案示例。")
-            st.session_state['answers_response'] = EXAMPLE_ANSWERS
-            st.success("示例答案已生成！")
-            st.markdown(EXAMPLE_ANSWERS)
-
-# 显示已生成的问题（未生成答案时，支持刷新后继续看）
+# 显示已生成的问题（刷新后，仍能看到）
 elif 'raw_response' in st.session_state and 'answers_response' not in st.session_state:
     st.markdown(st.session_state['raw_response'])
 
@@ -203,27 +218,33 @@ elif 'raw_response' in st.session_state and 'answers_response' not in st.session
     except:
         pass
 
-    st.markdown("---")
-    generate_answer = st.button("生成答案（示例）", type="secondary")
+# ========= 答案生成（示例流式） =========
+st.markdown("---")
+generate_answer = st.button("生成答案", type="secondary")
 
-    if generate_answer:
-        st.info("当前为示例站点，将展示预设好的答案示例。")
-        st.session_state['answers_response'] = EXAMPLE_ANSWERS
-        st.success("示例答案已生成！")
-        st.markdown(EXAMPLE_ANSWERS)
+if generate_answer and 'raw_response' in st.session_state:
+    st.info("当前为示例站点，将以“流式”方式展示预设好的答案示例。")
 
-# 显示已生成的答案（支持刷新后继续看）
+    answer_placeholder = st.empty()
+    simulate_streaming(EXAMPLE_ANSWERS, answer_placeholder, delay=0.01, chunk_size=12)
+
+    st.session_state['answers_response'] = EXAMPLE_ANSWERS
+    st.success("示例答案流式展示完成！")
+
+# 显示已生成的答案（刷新后继续看）
 if 'answers_response' in st.session_state:
     st.markdown("---")
-    st.subheader("📝 问题答案（示例）")
+    st.subheader("📝 问题答案（示例，完整内容）")
     st.markdown(st.session_state['answers_response'])
 
 # --- 页脚 ---
 st.markdown("---")
 st.markdown("""
 当前版本说明：  
-1. **不再调用任何 OpenRouter 或大语言模型 API**，所有内容均为预设示例。  
-2. 适合作为演示页面结构、交互流程的样例代码。  
-3. 如需恢复为真实调用版本，只需重新接入你的 API 调用逻辑，将示例字符串替换为模型输出即可。  
-4. 如需增加多个示例（不同学科/课文），可以在代码中增加条件分支，根据输入关键词匹配不同的预设问答。
+1. **不调用任何 OpenRouter 或大语言模型 API**，所有内容均为预设示例。  
+2. 通过 `simulate_streaming` + `st.empty()` 模拟“Token 逐步刷出来”的效果。  
+3. 如需接入真实模型，只需：  
+   - 用真实的流式响应替换 `simulate_streaming` 的调用；  
+   - 将模型返回的内容累积到字符串 `displayed` 并 `placeholder.markdown(displayed)` 即可复用同样的前端逻辑。  
+4. 如需增加多套示例（不同学科/课文），可以在顶部再定义多个 `EXAMPLE_XXX`，然后根据输入关键词简单 `if`/`elif` 选择对应示例即可。
 """)
