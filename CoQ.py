@@ -169,7 +169,7 @@ with st.sidebar:
         help="示例版中，该输入仅用于展示，不参与实际生成"
     )
 
-    generate_button = st.button("生成问题链（模拟流式）", type="primary")
+    generate_button = st.button("生成问题链", type="primary")
 
 # --- 主界面内容渲染（示例逻辑） ---
 if generate_button:
