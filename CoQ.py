@@ -182,7 +182,7 @@ if generate_button:
             if key in st.session_state:
                 del st.session_state[key]
 
-        st.info("当前为示例站点，将以“流式”方式展示预设好的《荷塘月色》问题链示例。")
+        #st.info("当前为示例站点，将以“流式”方式展示预设好的《荷塘月色》问题链示例。")
 
         # 用 placeholder 模拟流式输出
         response_placeholder = st.empty()
@@ -203,7 +203,7 @@ if generate_button:
             st.warning(f"解析关联逻辑说明时出错: {e}")
 
         st.markdown("---")
-        st.info("若想查看模拟的答案流式输出，请点击下方按钮（或刷新后点击页面下方的按钮）。")
+        #st.info("若想查看模拟的答案流式输出，请点击下方按钮（或刷新后点击页面下方的按钮）。")
 
 # 显示已生成的问题（刷新后，仍能看到）
 elif 'raw_response' in st.session_state and 'answers_response' not in st.session_state:
@@ -223,18 +223,18 @@ st.markdown("---")
 generate_answer = st.button("生成答案", type="secondary")
 
 if generate_answer and 'raw_response' in st.session_state:
-    st.info("当前为示例站点，将以“流式”方式展示预设好的答案示例。")
+    #st.info("当前为示例站点，将以“流式”方式展示预设好的答案示例。")
 
     answer_placeholder = st.empty()
     simulate_streaming(EXAMPLE_ANSWERS, answer_placeholder, delay=0.01, chunk_size=12)
 
     st.session_state['answers_response'] = EXAMPLE_ANSWERS
-    st.success("示例答案流式展示完成！")
+    st.success("答案展示完成！")
 
 # 显示已生成的答案（刷新后继续看）
 if 'answers_response' in st.session_state:
     st.markdown("---")
-    st.subheader("📝 问题答案（示例，完整内容）")
+    st.subheader("📝 问题答案）")
     st.markdown(st.session_state['answers_response'])
 
 # --- 页脚 ---
