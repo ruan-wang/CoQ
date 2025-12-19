@@ -147,12 +147,12 @@ st.set_page_config(page_title="链式问题生成器", page_icon="🔗", layout=
 
 # --- 应用标题和说明 ---
 st.title("🔗 通用学科问题链生成")
-st.markdown("""
-> 当前为 **示例站点**：  
-> - 不调用任何大模型 API；  
-> - 通过本地字符串 + `time.sleep` **模拟流式输出效果**。  
-> 左侧输入学科与描述仅用于展示，不影响示例内容。
-""")
+#st.markdown("""
+#> 当前为 **示例站点**：  
+#> - 不调用任何大模型 API；  
+#> - 通过本地字符串 + `time.sleep` **模拟流式输出效果**。  
+#> 左侧输入学科与描述仅用于展示，不影响示例内容。
+#""")
 
 # --- 侧边栏：用户输入 ---
 with st.sidebar:
@@ -239,12 +239,12 @@ if 'answers_response' in st.session_state:
 
 # --- 页脚 ---
 st.markdown("---")
-st.markdown("""
-当前版本说明：  
-1. **不调用任何 OpenRouter 或大语言模型 API**，所有内容均为预设示例。  
-2. 通过 `simulate_streaming` + `st.empty()` 模拟“Token 逐步刷出来”的效果。  
-3. 如需接入真实模型，只需：  
-   - 用真实的流式响应替换 `simulate_streaming` 的调用；  
-   - 将模型返回的内容累积到字符串 `displayed` 并 `placeholder.markdown(displayed)` 即可复用同样的前端逻辑。  
-4. 如需增加多套示例（不同学科/课文），可以在顶部再定义多个 `EXAMPLE_XXX`，然后根据输入关键词简单 `if`/`elif` 选择对应示例即可。
-""")
+#st.markdown("""
+#当前版本说明：  
+#1. **不调用任何 OpenRouter 或大语言模型 API**，所有内容均为预设示例。  
+#2. 通过 `simulate_streaming` + `st.empty()` 模拟“Token 逐步刷出来”的效果。  
+#3. 如需接入真实模型，只需：  
+#   - 用真实的流式响应替换 `simulate_streaming` 的调用；  
+#   - 将模型返回的内容累积到字符串 `displayed` 并 `placeholder.markdown(displayed)` 即可复用同样的前端逻辑。  
+#4. 如需增加多套示例（不同学科/课文），可以在顶部再定义多个 `EXAMPLE_XXX`，然后根据输入关键词简单 `if`/`elif` 选择对应示例即可。
+#""")
